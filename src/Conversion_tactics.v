@@ -310,17 +310,21 @@ Ltac renaming' :=
         intro f
     end.
 
+Ltac convert_fold := fold T add mul ltb leb eqb; intros.
+
+Ltac convert_unfold :=
+  let T2Z_unfolded := eval red in T2Z in change T2Z with T2Z_unfolded;
+  let inT_unfolded := eval red in inT in change inT with inT_unfolded;
+  simpl.
+
 (* The whole tactic *)
 Ltac convert :=
-fold T add mul ltb leb eqb;
-intros;
+convert_fold;
 converting;
 rewriting;
 renaming;
 renaming';
-let T2Z_unfolded := eval red in T2Z in change T2Z with T2Z_unfolded;
-let inT_unfolded := eval red in inT in change inT with inT_unfolded;
-simpl.
+convert_unfold.
 
 End convert.
 
@@ -455,6 +459,52 @@ Qed.
 
 End nat_convert_type.
 
-Module nat_convert_mod := convert nat_convert_type.
+Module nat_convert_mod' := convert nat_convert_type.
+
+Module nat_convert_mod.
+
+Import nat_convert_type.
+Include nat_convert_mod'.
+
+Ltac convert_S' X n :=
+  match X with
+  (* il reste un S, on le supprime et on incrémente le compteur *)
+  | T2Z (S ?x) => convert_S' (T2Z x) (n + 1)
+  (* il n'y a plus de S, donc X est le terme final *)
+  | T2Z _ => let n := eval red in n in constr:(X + n)
+  end.
+
+Ltac convert_S :=
+  repeat
+    match goal with
+    | |- context[T2Z (S ?x)] =>
+      let t := convert_S' (T2Z (S x)) 0 in
+      change (T2Z (S x)) with t
+    end.
+
+Ltac convert2 :=
+  convert_fold;
+  converting;
+  rewriting;
+  renaming;
+  convert_S;
+  renaming';
+  convert_unfold.
+
+Ltac convert_before_S :=
+  convert_fold;
+  converting;
+  rewriting;
+  renaming.
+
+Ltac convert_after_S :=
+  renaming';
+  convert_unfold.
+
+End nat_convert_mod.
 
 Ltac nat_convert := nat_convert_mod.convert.
+Ltac nat_convert2 := nat_convert_mod.convert2.
+Ltac nat_convert_before_S := nat_convert_mod.convert_before_S.
+Ltac nat_convert_S := nat_convert_mod.convert_S.
+Ltac nat_convert_after_S := nat_convert_mod.convert_after_S.
