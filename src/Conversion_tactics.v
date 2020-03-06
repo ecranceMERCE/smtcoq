@@ -466,19 +466,28 @@ Module nat_convert_mod.
 Import nat_convert_type.
 Include nat_convert_mod'.
 
-Ltac convert_S' X n :=
+Ltac convert_S' X :=
   match X with
-  (* il reste un S, on le supprime et on incrémente le compteur *)
-  | T2Z (S ?x) => convert_S' (T2Z x) (n + 1)
-  (* il n'y a plus de S, donc X est le terme final *)
-  | T2Z _ => let n := eval red in n in constr:(X + n)
+  | T2Z (S ?x) =>
+    match convert_S' (T2Z x) with
+    | (?z, ?r) => constr:(((z + 1)%Z, r))
+    end
+  | T2Z ?x => constr:((0%Z, x))
   end.
 
-Ltac convert_S :=
+Ltac convert_S X :=
+  match convert_S' X with
+  | (?z, O) => eval compute in z
+  | (?z, ?x) =>
+    let z := eval compute in z in
+    constr:(((T2Z x) + z)%Z)
+  end.
+
+Ltac convert_all_S :=
   repeat
     match goal with
     | |- context[T2Z (S ?x)] =>
-      let t := convert_S' (T2Z (S x)) 0 in
+      let t := convert_S (T2Z (S x)) in
       change (T2Z (S x)) with t
     end.
 
@@ -487,7 +496,7 @@ Ltac convert2 :=
   converting;
   rewriting;
   renaming;
-  convert_S;
+  convert_all_S;
   renaming';
   convert_unfold.
 
@@ -506,5 +515,5 @@ End nat_convert_mod.
 Ltac nat_convert := nat_convert_mod.convert.
 Ltac nat_convert2 := nat_convert_mod.convert2.
 Ltac nat_convert_before_S := nat_convert_mod.convert_before_S.
-Ltac nat_convert_S := nat_convert_mod.convert_S.
+Ltac nat_convert_S := nat_convert_mod.convert_all_S.
 Ltac nat_convert_after_S := nat_convert_mod.convert_after_S.
